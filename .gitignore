@@ -1,3 +1,6 @@
 .DS_Store
 node_modules/
 .env
+scrap.md
+source-modules/location/GetLocationMac.app/Contents/MacOS/
+source-modules/location/GetLocationMac.app/Contents/_CodeSignature/
