@@ -1,4 +1,8 @@
-### source-module functionality (naming/outputs)
+
+
+
+
+# sources/ module structure (naming/outputs)
 
 sources/
 ├── sourcename/
@@ -8,17 +12,26 @@ sources/
 │   │   ├── 
 │   │   ├── 
 
-sourcename.py >> contains the get_sourcename() function to collect data
+[sourcename.py]
+contains the get_sourcename() function to collect data
 
-__init__.py >> re-exports get_sourcename() so the main application can import it directly
+[__init__.py]
+re-exports get_sourcename() so the main application can import it directly
 
-src/ >> everything else the source needs (platform-specific code, helpers, binaries)
+[src/]
+everything else the source needs (platform-specific code, helpers, binaries)
 
-The main application only imports get_sourcename():
-
+**usage**
+Core application imports get_sourcename():
+```py
     from sources.sourcename import get_sourcename
+```
 
-#### current sources
+
+
+
+
+# current sources
 
 sources/
 ├── location/
