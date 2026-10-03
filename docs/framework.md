@@ -81,9 +81,14 @@ sources/
 
 
 
-# main.py
+# core.py / config.py
 
-Runs one thread per source via the `SOURCES` config table, each polling on its
-own interval (location every 10s, filetree hourly). A `stop` Event gives clean
-Ctrl-C shutdown; a print lock keeps log lines from interleaving. location and
-filetree are both live; keystrokes is not yet wired in.
+config.py reads/writes ~/.boku/config.json (per-source {enabled, interval},
+defaults + merge on load, atomic writes). It is the single source of truth
+every shell (CLI, GUI, app) reads and writes.
+
+core.py runs one thread per *enabled* source, resolving each via
+sources.<name> -> get_<name>(). Each poll has a timeout; a failing or
+unavailable source logs an error and the other sources keep running. A stop
+Event + SIGINT handler give clean shutdown; a print lock keeps log lines from
+interleaving.

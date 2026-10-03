@@ -5,11 +5,8 @@
 - `core.py` — config-driven loop, one thread per enabled source, per-poll
   timeout, per-source error isolation, clean SIGINT shutdown.
 - Cross-platform core verified on Mac (polling, error channel, empty case).
-
-## Docs cleanup (quick)
-- `framework.md` `# main.py` section (lines 67–72) is stale — `core.py` replaced
-  the hardcoded `SOURCES` table with the config-driven loop. Rewrite to describe
-  `core.py` + `config.py`.
+- Core verified cross-platform on Windows (config path, loop, error isolation,
+  shutdown, empty case).
 
 ## Core-adjacent (small, additive)
 - Standardize source **output + error shape** (note added in `framework.md`) —
