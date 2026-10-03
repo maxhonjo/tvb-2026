@@ -16,16 +16,12 @@ def log(name, message):
         print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"), f"{name}:", message)
 
 
-def format_location(reading):
-    return reading
-
-
 def format_filetree(reading):
     return f"{len(reading['paths'])} paths under {reading['root']}"
 
 
 SOURCES = [
-    ("location", get_location, LOCATION_INTERVAL, format_location),
+    ("location", get_location, LOCATION_INTERVAL, lambda r: r),
     ("filetree", get_filetree, FILETREE_INTERVAL, format_filetree),
 ]
 
