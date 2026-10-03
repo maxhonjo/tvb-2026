@@ -39,8 +39,17 @@ sources/
 │   ├── location.py              >> get_location()
 │   ├── src/
 │   │   ├── mac.py
-│   │   ├── windows.py           (not implemented)
+│   │   ├── windows.py           (todo)
+│   │   ├── android.py           (todo)
+│   │   ├── ios.py               (todo)
 │   │   ├── get-location-mac.swift
 │   │   ├── GetLocationMac.app/
-├── keystrokes/                  (not yet structured)
+├── keystrokes/                  (scaffolding only, not implemented)
+│   ├── __init__.py
+│   ├── keystrokes.py            >> get_keystrokes()
 │   ├── keystroke.txt
+│   ├── src/
+│   │   ├── mac.py               (todo)
+│   │   ├── windows.py           (todo)
+│   │   ├── android.py           (todo)
+│   │   ├── ios.py               (todo)
