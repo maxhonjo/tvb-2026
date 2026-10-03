@@ -31,6 +31,23 @@ Core application imports get_sourcename():
 
 
 
+# output shape (TODO: standardize)
+
+Every `get_sourcename()` must return the **same dict shape regardless of
+platform** — same keys, same conventions — so the core, storage, and display
+layers never need to know which OS produced a reading. The platform dispatch
+picks the backend; the output contract stays identical across mac / windows /
+etc.
+
+Decide the concrete shape later. When we do, also standardize:
+- **timestamps**: sources record UTC (ISO-8601, `Z`); only the display layer
+  converts to local. (location already does this; the core logger currently
+  prints local time — that split lives in the display layer, not the source.)
+- **errors**: a shared error shape alongside the data shape.
+
+Until then the core treats readings as opaque and prints them as-is.
+
+
 # current sources
 
 sources/
