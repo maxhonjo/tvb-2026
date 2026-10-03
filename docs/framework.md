@@ -47,9 +47,26 @@ sources/
 ├── keystrokes/                  (scaffolding only, not implemented)
 │   ├── __init__.py
 │   ├── keystrokes.py            >> get_keystrokes()
-│   ├── keystroke.txt
 │   ├── src/
 │   │   ├── mac.py               (todo)
 │   │   ├── windows.py           (todo)
 │   │   ├── android.py           (todo)
 │   │   ├── ios.py               (todo)
+├── filetree/
+│   ├── __init__.py
+│   ├── filetree.py              >> get_filetree()
+│   ├── src/
+│   │   ├── mac.py
+│   │   ├── windows.py           (todo)
+│   │   ├── android.py           (todo)
+│   │   ├── ios.py               (todo)
+
+
+
+
+# main.py
+
+Runs one thread per source via the `SOURCES` config table, each polling on its
+own interval (location every 10s, filetree hourly). A `stop` Event gives clean
+Ctrl-C shutdown; a print lock keeps log lines from interleaving. location and
+filetree are both live; keystrokes is not yet wired in.
