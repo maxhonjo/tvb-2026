@@ -2,5 +2,7 @@
 node_modules/
 .env
 scrap.md
-source-modules/location/GetLocationMac.app/Contents/MacOS/
-source-modules/location/GetLocationMac.app/Contents/_CodeSignature/
+sources/location/src/GetLocationMac.app/Contents/MacOS/
+sources/location/src/GetLocationMac.app/Contents/_CodeSignature/
+test.py
+__pycache__/
