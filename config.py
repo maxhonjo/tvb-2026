@@ -9,9 +9,10 @@ CONFIG_PATH = CONFIG_DIR / "config.json"
 # Each source: enabled flag + poll interval in seconds. Disabled by default.
 DEFAULTS = {
     "sources": {
-        "location":   {"enabled": False, "interval": 60},
-        "filetree":   {"enabled": False, "interval": 300},
-        "keystrokes": {"enabled": False, "interval": 60},
+        "location":     {"enabled": False, "interval": 60},
+        "filetree":     {"enabled": False, "interval": 300},
+        "keystrokes":   {"enabled": False, "interval": 60},
+        "app_activity": {"enabled": False, "interval": 60},
     }
 }
 

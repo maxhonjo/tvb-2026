@@ -19,13 +19,14 @@ def log(name, message):
 
 
 def load_source(name):
-    """Resolve a source's collector: sources.<name> exposes get_<name>().
+    """Import a source package. sources.<name> exposes get_<name>(); listener
+    sources (keystrokes, app_activity) additionally expose start_<name>() /
+    stop_<name>() for the core to drive their lifecycle.
 
     Enabled-but-unavailable (not implemented, import error) raises here and the
     caller reports it as an error for that source only.
     """
-    module = importlib.import_module(f"sources.{name}")
-    return getattr(module, f"get_{name}")
+    return importlib.import_module(f"sources.{name}")
 
 
 def poll_once(collect, timeout):
@@ -58,17 +59,33 @@ def poll(name, collect, interval):
 
 
 def run():
-    """Read config, start one thread per enabled source, poll until interrupted."""
+    """Read config, start one thread per enabled source, poll until interrupted.
+
+    Listener sources (those exposing start_<name>) are started before polling and
+    stopped on shutdown; the poll loop just drains their buffer each interval.
+    """
     cfg = config.load()
     threads = []
+    listeners = []  # (name, stop_fn) to shut down after the poll loop ends
     for name, settings in cfg["sources"].items():
         if not settings.get("enabled"):
             continue
         try:
-            collect = load_source(name)
+            module = load_source(name)
+            collect = getattr(module, f"get_{name}")
         except Exception as e:
             log(name, f"error: unavailable: {e}")  # enabled but no working impl
             continue
+
+        start = getattr(module, f"start_{name}", None)
+        if start is not None:  # listener source: begin buffering before polling
+            try:
+                start()
+                listeners.append((name, getattr(module, f"stop_{name}", None)))
+            except Exception as e:
+                log(name, f"error: failed to start listener: {e}")
+                continue
+
         threads.append(
             threading.Thread(
                 target=poll, args=(name, collect, settings["interval"]), name=name
@@ -86,6 +103,12 @@ def run():
         pass
     for t in threads:
         t.join()
+    for name, stop_fn in listeners:  # release OS resources (helper processes)
+        if stop_fn is not None:
+            try:
+                stop_fn()
+            except Exception as e:
+                log(name, f"error: failed to stop listener: {e}")
 
 
 if __name__ == "__main__":

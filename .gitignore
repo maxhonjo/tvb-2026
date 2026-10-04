@@ -6,3 +6,5 @@ sources/location/src/GetLocationMac.app/Contents/MacOS/
 sources/location/src/GetLocationMac.app/Contents/_CodeSignature/
 test.py
 __pycache__/
+mentors.md
+roadmap.md
