@@ -1,6 +1,8 @@
 import sys
 import threading
 
+from .src.mac import Listener
+
 
 class _Mailbox:
     """Self-contained event buffer. Platform listeners fill via emit(); the core
@@ -24,18 +26,15 @@ _mailbox = _Mailbox()
 _listener = None
 
 
-def _make_listener():
-    if sys.platform == "darwin":
-        from .src.mac import Listener
-        return Listener(_mailbox)
-    raise NotImplementedError(f"Unsupported platform: {sys.platform}")
-
-
 def start_app_activity() -> None:
     global _listener
-    if _listener is None:  # idempotent
-        _listener = _make_listener()
+    if _listener is not None:  # idempotent
+        return
+    if sys.platform == "darwin":
+        _listener = Listener(_mailbox)
         _listener.start()
+        return
+    raise NotImplementedError(f"Unsupported platform: {sys.platform}")
 
 
 def get_app_activity() -> dict:

@@ -2,8 +2,9 @@
 node_modules/
 .env
 scrap.md
-sources/location/src/GetLocationMac.app/Contents/MacOS/
-sources/location/src/GetLocationMac.app/Contents/_CodeSignature/
+sources/location/src/get-location-mac.app/Contents/MacOS/
+sources/location/src/get-location-mac.app/Contents/_CodeSignature/
+sources/app_activity/src/app-activity-mac
 test.py
 __pycache__/
 mentors.md

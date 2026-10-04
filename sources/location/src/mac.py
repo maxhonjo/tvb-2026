@@ -2,10 +2,9 @@ import json
 import subprocess
 from pathlib import Path
 
-SRC_DIR = Path(__file__).parent
+BINARY = Path(__file__).parent / "get-location-mac.app" / "Contents" / "MacOS" / "get-location-mac"
 
 
 def get_location_mac() -> dict:
-    binary = SRC_DIR / "get-location-mac.app" / "Contents" / "MacOS" / "get-location-mac"
-    result = subprocess.run([str(binary)], capture_output=True, text=True, check=True)
+    result = subprocess.run([str(BINARY)], capture_output=True, text=True, check=True)
     return json.loads(result.stdout)
