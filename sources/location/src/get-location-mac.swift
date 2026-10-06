@@ -32,6 +32,8 @@ class LocationGetter: NSObject, CLLocationManagerDelegate {
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        // Transient: CoreLocation keeps trying, so wait for a fix or the timeout.
+        if (error as? CLError)?.code == .locationUnknown { return }
         FileHandle.standardError.write("Error: \(error.localizedDescription)\n".data(using: .utf8)!)
         exit(1)
     }

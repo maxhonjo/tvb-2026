@@ -43,7 +43,9 @@ sources/             one folder per source + errors.py
 storage/storage.py   store(record): one JSON line per record, filetree diffing
 ui/ui.py             tkinter UI mockup (Martin), not wired to the core
 martin-temp/         Martin's Windows modules, not integrated
+add-ons/             standalone apps that read the stored data, one folder each
 docs/framework.md    this file
+docs/add-ons.md      convention for add-ons
 docs/roadmap.md      Max's checklist (gitignored, local only)
 docs/ai-guides/      older planning notes (superseded by this file)
 ```
@@ -409,8 +411,9 @@ From `docs/roadmap.md`, in order.
   (default interval is 300s, which keeps this small).
 - Reading the data back is not the core's job. Everything that uses the data is
   a separate, standalone app under `add-ons/`, reading the `.jsonl` files in
-  `~/.boku/data` directly. A simple reader is the first one planned. (Rebuilding a filetree
-  means replaying diffs from the latest baseline.)
+  `~/.boku/data` directly. The convention is in `docs/add-ons.md`; the first
+  one is `add-ons/reader`. (Rebuilding a filetree means replaying diffs from
+  the latest baseline.)
 - Deriving app usage sessions from `opened` / `closed` events belongs in
   storage or downstream, not in the source.
 
