@@ -1,0 +1,13 @@
+#!/bin/bash
+# Shortcut, not a build: runs ui/ui2.py from the repo this app lives in.
+# Output goes to ~/.boku/logs/boku.log.
+REPO="$(cd "$(dirname "$0")/../../../.." && pwd -P)"
+mkdir -p "$HOME/.boku/logs"
+exec >>"$HOME/.boku/logs/boku.log" 2>&1
+cd "$REPO" || exit 1
+# exec keeps the same process, so the Dock shows this app's icon.
+if [ -x .venv/bin/python ]; then
+    exec .venv/bin/python ui/ui2.py
+fi
+export PATH="/opt/homebrew/bin:$HOME/.local/bin:$PATH"
+exec uv run python ui/ui2.py

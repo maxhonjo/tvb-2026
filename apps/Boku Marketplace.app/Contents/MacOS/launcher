@@ -1,0 +1,18 @@
+#!/bin/bash
+# Shortcut, not a build: starts add-ons/marketplace/marketplace.py from the
+# repo this app lives in and leaves it serving in the background. If it is
+# already running, just reopens the page. Output goes to
+# ~/.boku/logs/marketplace.log. Stop it with: pkill -f marketplace.py
+REPO="$(cd "$(dirname "$0")/../../../.." && pwd -P)"
+mkdir -p "$HOME/.boku/logs"
+exec >>"$HOME/.boku/logs/marketplace.log" 2>&1
+cd "$REPO" || exit 1
+if nc -z 127.0.0.1 8777; then
+    exec open http://127.0.0.1:8777
+fi
+if [ -x .venv/bin/python ]; then
+    nohup .venv/bin/python add-ons/marketplace/marketplace.py &
+else
+    export PATH="/opt/homebrew/bin:$HOME/.local/bin:$PATH"
+    nohup uv run python add-ons/marketplace/marketplace.py &
+fi
