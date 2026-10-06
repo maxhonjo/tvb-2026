@@ -36,8 +36,8 @@ Built by Max (core, Mac sources) and Martin (Windows modules, UI).
 # repo layout
 
 ```
-core.py              poll loop, record envelope, error mapping, handle() sink
-config.py            read/write ~/.boku/config.json
+core.py              poll loop, live config sync, record envelope, error mapping, handle() sink
+config.py            read/write/edit ~/.boku/config.json
 sources/             one folder per source + errors.py
 ui/ui.py             tkinter UI mockup (Martin), not wired to the core
 martin-temp/         Martin's Windows modules, not integrated
@@ -206,22 +206,36 @@ listener source. Martin has a Windows version in `martin-temp/`.
 - `load()` merges the file over `DEFAULTS`, so a new source added to `DEFAULTS`
   appears without a migration; it writes the defaults on first run.
 - `save()` is atomic (temp file + `os.replace`).
-- It is the single source of truth every shell reads and writes. Today the only
-  way to change it is editing the file or calling `config.load()` / `save()`.
+- It is the single source of truth every shell reads and writes.
+- Edit API for shells: `set_enabled(name, enabled)` and
+  `set_interval(name, seconds)`. Each loads, changes, saves, and returns the new
+  config. Both raise `ValueError` for an unknown source; `set_interval` also
+  rejects anything that is not a positive number.
 
-**core.py** `run()`:
-1. Loads the config **once at startup**. Changes made while it runs are not
-   picked up until restart.
-2. For each enabled source: imports `sources.<name>`, gets `get_<name>`. A
-   failure here yields an `unavailable` record and that source is skipped.
-3. If the source exposes `start_<name>()`, calls it before polling (a failed
-   start skips the source).
-4. Starts one thread per source running `poll()`: `poll_once()` -> record ->
-   `handle()`, then waits `interval`.
-5. On SIGINT, sets the stop Event, joins the poll threads, then calls
-   `stop_<name>()` for every started listener.
+**core.py** `run()` follows the config file while it runs:
+1. Every 0.5s it checks the config file's mtime. On a change (and once at
+   startup) it reloads and calls `sync()`.
+2. `sync()` compares the config with the running sources: newly enabled ones
+   are started, disabled ones stopped, and a source whose interval changed is
+   stopped and started again.
+3. `start_source()`: imports `sources.<name>`, gets `get_<name>`, calls
+   `start_<name>()` if the source has one, then starts a thread running
+   `poll()`: `poll_once()` -> record -> `handle()`, then waits `interval`. A
+   failed import or listener start yields an `unavailable` record and the
+   source is not started.
+4. `stop_source()`: sets that source's stop Event, joins its thread, then calls
+   `stop_<name>()` for a listener.
+5. On SIGINT, every running source is stopped the same way.
 
 Details:
+- With nothing enabled the core logs "no enabled sources" and idles until a
+  source is enabled; it does not exit.
+- A config that fails to load (e.g. caught mid-edit) is logged and whatever is
+  running keeps running.
+- An enabled source that failed to start is retried on every config change, so
+  its `unavailable` record repeats.
+- Stopping a source waits for its current poll to finish (up to
+  `POLL_TIMEOUT`); other config changes are not applied during that wait.
 - `poll_once(name, collect, timeout)` runs the source in a worker thread and
   always returns a record. On timeout (`POLL_TIMEOUT = 30`) the worker is
   abandoned as a daemon thread and keeps running in the background.
@@ -236,7 +250,8 @@ backend through five stub methods on `LoggerUI`: `get_os()`,
 `get_compatibility()`, `start_logging(kind)`, `stop_logging(kind)`,
 `open_log()`. Its `kind` keys are `"Process"`, `"Key"`, `"Location"`, which do
 not match the source names (`app_activity`, `keystrokes`, `location`,
-`filetree`). It does not import the core or the config.
+`filetree`). It does not import the core or the config. Once the keys are
+mapped, `start_logging` / `stop_logging` can call `config.set_enabled()`.
 
 **martin-temp/** (Martin): `processes.py` (`ProcessLog`, foreground window
 tracking) and `keystrokes.py` (`KeyLog`). Windows only, and they use `psutil`,
@@ -246,6 +261,10 @@ not follow the source contract above.
 
 # status
 
+- 2026-10-06, Mac: live config changes (enable, disable, interval, malformed
+  file, listener start/stop, SIGINT) were verified against a running core with
+  a throwaway script. Not covered: disabling a source mid-poll, and a first run
+  with no config file.
 - 2026-10-06, Mac: envelope, every error code, skip-on-empty, and listener
   shutdown were exercised by hand and worked. Location failure was simulated
   with a stub helper, not by revoking the real permission.
@@ -258,15 +277,7 @@ not follow the source contract above.
 
 From `docs/roadmap.md`, in order.
 
-**1. Core can edit config (enable/disable sources, edit interval)**
-- `config.load()` / `save()` already exist; what is missing is a small API
-  (enable, disable, set interval) for shells to call.
-- Open question: whether a running core should pick up changes live. Today it
-  needs a restart, and starting or stopping a listener mid-run is not supported.
-- The UI's `start_logging` / `stop_logging` stubs are the natural callers, once
-  its keys are mapped to source names.
-
-**2. Storage (simple text file for now)**
+**1. Storage (simple text file for now)**
 - Hook point is `core.handle(record)`; every record already passes through it.
 - Earlier plan: append each record as one line to `~/.boku/<source>.jsonl`.
 - Decide whether error records are stored or only printed.
@@ -278,7 +289,7 @@ From `docs/roadmap.md`, in order.
 - Deriving app usage sessions from `opened` / `closed` events belongs here too,
   not in the source.
 
-**3. To figure out**: UI (CLI vs GUI), add-ons, presentation
+**2. To figure out**: UI (CLI vs GUI), add-ons, presentation
 (Presentation II is 2026-10-07, 15:12).
 
 **Later**: keystrokes on Mac, Windows backends per source, bringing Martin's

@@ -52,5 +52,29 @@ def save(config: dict) -> None:
     os.replace(tmp, CONFIG_PATH)
 
 
+def _source(config: dict, name: str) -> dict:
+    if name not in config["sources"]:
+        raise ValueError(f"unknown source: {name}")
+    return config["sources"][name]
+
+
+def set_enabled(name: str, enabled: bool) -> dict:
+    """Enable or disable one source and save. Returns the new config."""
+    config = load()
+    _source(config, name)["enabled"] = bool(enabled)
+    save(config)
+    return config
+
+
+def set_interval(name: str, seconds: float) -> dict:
+    """Set one source's poll interval in seconds and save. Returns the new config."""
+    if isinstance(seconds, bool) or not isinstance(seconds, (int, float)) or seconds <= 0:
+        raise ValueError(f"interval must be a positive number, got {seconds!r}")
+    config = load()
+    _source(config, name)["interval"] = seconds
+    save(config)
+    return config
+
+
 if __name__ == "__main__":
     print(load())

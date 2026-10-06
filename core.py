@@ -94,71 +94,114 @@ def poll_once(name, collect, timeout):
     return make_record(name, data=data)
 
 
-def poll(name, collect, interval):
+def poll(name, collect, interval, stopped):
     """Fixed-interval poll loop for one source. Errors are recorded, never fatal."""
-    while not stop.is_set():
+    while not stopped.is_set():
         record = poll_once(name, collect, POLL_TIMEOUT)
         # A listener with nothing buffered since the last poll produces no record.
         if not (record["ok"] and record["data"] == {"events": []}):
             handle(record)
-        stop.wait(interval)
+        stopped.wait(interval)
+
+
+def start_source(name, settings):
+    """Start one source: import it, start its listener if it has one, and begin
+    polling. Returns its running entry, or None if it could not be started (an
+    error record is emitted)."""
+    try:
+        module = load_source(name)
+        collect = getattr(module, f"get_{name}")
+    except Exception as e:  # enabled but no working impl
+        handle(make_record(name, error={"code": "unavailable", "message": str(e)}))
+        return None
+
+    stop_fn = None
+    start = getattr(module, f"start_{name}", None)
+    if start is not None:  # listener source: begin buffering before polling
+        try:
+            start()
+            stop_fn = getattr(module, f"stop_{name}", None)
+        except Exception as e:
+            error = to_error(e)
+            if error["code"] == "internal":
+                error["code"] = "unavailable"
+            error["message"] = f"failed to start listener: {error['message']}"
+            handle(make_record(name, error=error))
+            return None
+
+    stopped = threading.Event()
+    interval = settings["interval"]
+    thread = threading.Thread(
+        target=poll, args=(name, collect, interval, stopped), name=name
+    )
+    thread.start()
+    return {"thread": thread, "stopped": stopped, "stop_fn": stop_fn, "interval": interval}
+
+
+def stop_source(name, entry):
+    """Stop one source's poll thread, then release its listener (helper processes)."""
+    entry["stopped"].set()
+    entry["thread"].join()
+    if entry["stop_fn"] is not None:
+        try:
+            entry["stop_fn"]()
+        except Exception as e:
+            log(name, f"error: failed to stop listener: {e}")
+
+
+def sync(running, cfg):
+    """Bring the running sources in line with cfg: start newly enabled ones, stop
+    disabled ones, restart those whose interval changed."""
+    for name, settings in cfg["sources"].items():
+        enabled = settings.get("enabled")
+        entry = running.get(name)
+        if entry and (not enabled or entry["interval"] != settings["interval"]):
+            stop_source(name, running.pop(name))
+            entry = None
+        if enabled and entry is None:
+            entry = start_source(name, settings)
+            if entry is not None:
+                running[name] = entry
+
+
+def config_mtime():
+    try:
+        return config.CONFIG_PATH.stat().st_mtime_ns
+    except FileNotFoundError:
+        return None
 
 
 def run():
-    """Read config, start one thread per enabled source, poll until interrupted.
+    """Run one poll thread per enabled source until interrupted, following the
+    config file: whenever it changes, sources are started, stopped, or restarted
+    to match. With nothing enabled the core idles until a source is enabled.
 
     Listener sources (those exposing start_<name>) are started before polling and
-    stopped on shutdown; the poll loop just drains their buffer each interval.
+    stopped when disabled or on shutdown; the poll loop just drains their buffer
+    each interval.
     """
-    cfg = config.load()
-    threads = []
-    listeners = []  # (name, stop_fn) to shut down after the poll loop ends
-    for name, settings in cfg["sources"].items():
-        if not settings.get("enabled"):
-            continue
-        try:
-            module = load_source(name)
-            collect = getattr(module, f"get_{name}")
-        except Exception as e:  # enabled but no working impl
-            handle(make_record(name, error={"code": "unavailable", "message": str(e)}))
-            continue
-
-        start = getattr(module, f"start_{name}", None)
-        if start is not None:  # listener source: begin buffering before polling
-            try:
-                start()
-                listeners.append((name, getattr(module, f"stop_{name}", None)))
-            except Exception as e:
-                error = to_error(e)
-                if error["code"] == "internal":
-                    error["code"] = "unavailable"
-                error["message"] = f"failed to start listener: {error['message']}"
-                handle(make_record(name, error=error))
-                continue
-
-        threads.append(
-            threading.Thread(
-                target=poll, args=(name, collect, settings["interval"]), name=name
-            )
-        )
-
-    if not threads:
-        log("core", "no enabled sources")
-        return
-
     signal.signal(signal.SIGINT, lambda *_: stop.set())
-    for t in threads:
-        t.start()
-    while not stop.wait(0.5):
-        pass
-    for t in threads:
-        t.join()
-    for name, stop_fn in listeners:  # release OS resources (helper processes)
-        if stop_fn is not None:
+    running = {}  # name -> entry from start_source
+    seen = -1  # config mtime last acted on; -1 forces the initial load
+    while True:
+        mtime = config_mtime()
+        if mtime != seen:
+            seen = mtime
             try:
-                stop_fn()
-            except Exception as e:
-                log(name, f"error: failed to stop listener: {e}")
+                cfg = config.load()
+            except Exception as e:  # e.g. caught mid-edit; keep what is running
+                log("core", f"error: config not loaded, keeping previous: {e}")
+            else:
+                sync(running, cfg)
+                if not running:
+                    log("core", "no enabled sources")
+        if stop.wait(0.5):
+            break
+
+    for entry in running.values():  # signal all first so they wind down together
+        entry["stopped"].set()
+    for name, entry in running.items():
+        stop_source(name, entry)
 
 
 if __name__ == "__main__":
