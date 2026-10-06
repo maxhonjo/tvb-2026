@@ -12,7 +12,7 @@ Last updated: 2026-10-06.
 Boku (working name; "Alibi" was the other candidate) collects a person's own
 activity data from their devices. Small independent **sources** each gather one
 kind of data; the **core** polls them, wraps each result in a standard record,
-prints it, and stores it as a line in a text file. Add-on ideas built on the
+stores it as a line in a text file, and prints a summary line. Add-on ideas built on the
 collected data: an `/impersonate-me` skill and a data marketplace.
 
 Built by Max (core, Mac sources) and Martin (Windows modules, UI).
@@ -115,7 +115,8 @@ The core wraps every poll in one envelope (`core.make_record`):
 ```
 - `timestamp` on the envelope is the poll time, set by the core.
 - `data` is whatever the source returned. Source-specific times live inside it.
-- Every record goes through `core.handle(record)`, which stores it and prints it.
+- Every record goes through `core.handle(record)`, which stores it and prints a
+  summary line.
 - A listener poll with no events (`{"events": []}`) produces no record.
 
 **timestamps**: always UTC ISO-8601 with `Z`, always under the key `timestamp`
@@ -246,9 +247,12 @@ Details:
   abandoned as a daemon thread and keeps running in the background.
 - One source failing never affects the others.
 - `log()` holds a print lock so lines do not interleave.
-- `handle(record)` calls `storage.store(record)`, then prints. A failed write is
-  logged as `storage error` and polling continues. Printed data is cut to
-  `PRINT_LIMIT = 200` characters; storage always gets the full record.
+- `handle(record)` calls `storage.store(record)`, then prints one summary line
+  per record, never the data itself: `data collected`, `3 events collected`
+  (listeners), `1204 paths collected` (filetree), or `error [code]: message`.
+  A failed write is logged as `storage error` instead, and polling continues.
+  The filetree line is printed on every poll, even when nothing changed and
+  nothing was stored.
 
 
 # driving the core from a shell
@@ -278,7 +282,7 @@ core.start()           # can be started again afterwards
   changes up within 0.5s. There is no per-source start/stop call.
 - Run one core at a time. Two cores (two processes, or a shell plus
   `python core.py`) would both poll and overwrite each other's status.
-- The core still prints every record to stdout.
+- The core still prints a summary line per record to stdout.
 
 **Status**: `core.status()` in-process, or `~/.boku/status.json`
 (`core.STATUS_PATH`) from any process. Same shape:
@@ -424,7 +428,7 @@ and the `config.py` edit API. Nothing in `core.py`, `config.py`, `sources/`, or
 - Source names to use everywhere: the keys of `config.DEFAULTS["sources"]`.
 - Things the UI has to handle itself: call `core.stop()` off the UI thread (it
   can block up to 30s) and always before exit; convert UTC times to local for
-  display; the core's records still go to stdout, not to the UI.
+  display; the core's summary lines still go to stdout, not to the UI.
 - Not decided yet: toolkit (stdlib only means tkinter for a GUI), whether to
   adapt Martin's `ui/ui.py` or start fresh, and where the new file lives.
 - Known gap: no cleanup of helpers orphaned by a force-quit (see "driving the

@@ -14,8 +14,6 @@ from sources.errors import SourceError
 # Cap on a single poll; a poll exceeding this yields a timeout error record and
 # the loop continues.
 POLL_TIMEOUT = 30
-# Printed records are cut to this many characters; storage gets the full record.
-PRINT_LIMIT = 200
 
 # Status file rewritten by the running core; shells read it (see docs/framework.md).
 STATUS_PATH = config.CONFIG_DIR / "status.json"
@@ -112,18 +110,24 @@ def status():
         return copy.deepcopy(state)
 
 
+def summarize(data):
+    """One-line description of a successful poll, for the console."""
+    for key in ("events", "paths"):
+        if isinstance(data.get(key), list):
+            return f"{len(data[key])} {key} collected"
+    return "data collected"
+
+
 def handle(record):
-    """Single sink for every record: store it, then print it."""
+    """Single sink for every record: store it, then print a summary line."""
     track(record)
     try:
         storage.store(record)
     except Exception as e:  # a failed write must not kill the poll thread
         log(record["source"], f"storage error: {type(e).__name__}: {e}")
+        return
     if record["ok"]:
-        text = str(record["data"])
-        if len(text) > PRINT_LIMIT:
-            text = f"{text[:PRINT_LIMIT]}... ({len(text)} chars)"
-        log(record["source"], text)
+        log(record["source"], summarize(record["data"]))
     else:
         error = record["error"]
         log(record["source"], f"error [{error['code']}]: {error['message']}")

@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boku</title>
+<style>
+  :root {
+    --bg: #F6F6F4;
+    --card: #FFFFFF;
+    --line: #E7E6E2;
+    --text: #1B1B19;
+    --muted: #76756F;
+    --faint: #A9A8A2;
+    --accent: #1B1B19;
+    --on-accent: #FFFFFF;
+    --ok: #2E9E6A;
+    --ok-soft: rgba(46, 158, 106, .16);
+    --warn: #C98A1B;
+    --err: #D0463B;
+    --track: #D9D8D3;
+    --field: #F2F1EE;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161615;
+      --card: #1F1F1E;
+      --line: #2E2E2C;
+      --text: #F1F0EC;
+      --muted: #9C9B95;
+      --faint: #6B6A65;
+      --accent: #F1F0EC;
+      --on-accent: #161615;
+      --ok: #45BD85;
+      --ok-soft: rgba(69, 189, 133, .18);
+      --warn: #E0A53A;
+      --err: #EF6B60;
+      --track: #3A3A38;
+      --field: #2A2A28;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -webkit-user-select: none;
+    user-select: none;
+    cursor: default;
+  }
+  main {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 28px 24px 18px;
+  }
+
+  /* header */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  h1 {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -.03em;
+    line-height: 1.1;
+  }
+  .core {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--faint);
+    transition: background .2s, box-shadow .2s;
+  }
+  .dot.ok { background: var(--ok); box-shadow: 0 0 0 4px var(--ok-soft); }
+  .dot.wait { background: var(--warn); }
+  .dot.err { background: var(--err); }
+  .dot.pulse { animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+
+  button.primary {
+    flex: none;
+    min-width: 96px;
+    height: 36px;
+    padding: 0 18px;
+    border: 1px solid var(--accent);
+    border-radius: 18px;
+    background: var(--accent);
+    color: var(--on-accent);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity .15s, background .15s, color .15s;
+  }
+  button.primary.quiet { background: transparent; color: var(--text); border-color: var(--line); }
+  button.primary:hover:not(:disabled) { opacity: .8; }
+  button.primary:disabled { opacity: .45; cursor: default; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--ok); outline-offset: 2px; }
+
+  /* sources */
+  h2 {
+    margin: 0 0 10px 2px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .list {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .source { padding: 14px 16px 13px; }
+  .source + .source { border-top: 1px solid var(--line); }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+  .name { font-weight: 600; }
+  .about { color: var(--muted); font-size: 13px; }
+  .source.off .name, .source.off .about { color: var(--faint); }
+  .meta { margin-top: 10px; min-height: 24px; font-size: 12.5px; color: var(--muted); }
+  .state { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+  .state .dot { width: 7px; height: 7px; margin-top: 6px; }
+  .state .dot.ok { box-shadow: none; }
+  .state span:last-child {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+  }
+  .state.err span:last-child { color: var(--err); }
+
+  .every { flex: none; display: flex; align-items: center; gap: 6px; color: var(--muted); }
+  .every input {
+    width: 58px;
+    height: 24px;
+    padding: 0 6px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: var(--field);
+    color: var(--text);
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    -webkit-user-select: text;
+    user-select: text;
+  }
+  .every input:focus { border-color: var(--line); outline: none; }
+  .every input.bad { border-color: var(--err); }
+  .every input::-webkit-outer-spin-button,
+  .every input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+  /* switch */
+  .switch { flex: none; position: relative; width: 38px; height: 22px; }
+  .switch input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .switch i {
+    position: absolute;
+    inset: 0;
+    border-radius: 11px;
+    background: var(--track);
+    transition: background .18s;
+    pointer-events: none;
+  }
+  .switch i::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .25);
+    transition: transform .18s;
+  }
+  .switch input:checked + i { background: var(--ok); }
+  .switch input:checked + i::after { transform: translateX(16px); }
+  .switch input:focus-visible + i { outline: 2px solid var(--ok); outline-offset: 2px; }
+
+  /* footer */
+  .notice { margin: 12px 2px 0; color: var(--err); font-size: 12.5px; overflow-wrap: anywhere; }
+  footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: auto;
+    padding: 22px 2px 0;
+    color: var(--faint);
+    font-size: 12px;
+  }
+  button.link {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    cursor: pointer;
+  }
+  button.link:hover { color: var(--text); }
+
+  /* closing overlay */
+  .veil {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: var(--bg);
+    color: var(--muted);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s;
+  }
+  .veil.on { opacity: .94; pointer-events: auto; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Boku</h1>
+      <div class="core"><span class="dot" id="core-dot"></span><span id="core-text">Loading…</span></div>
+    </div>
+    <button class="primary" id="toggle" disabled>Start</button>
+  </header>
+
+  <h2>Sources</h2>
+  <div class="list" id="list"></div>
+  <p class="notice" id="notice" hidden></p>
+
+  <footer>
+    <span>Stored only on this device</span>
+    <button class="link" id="folder">Open data folder</button>
+  </footer>
+</main>
+<div class="veil" id="veil"><span class="dot wait pulse"></span><span>Stopping…</span></div>
+
+<script>
+const LABELS = {
+  location:     ["Location", "Where this device is"],
+  filetree:     ["Files", "Names of files and folders, never contents"],
+  keystrokes:   ["Keystrokes", "What is typed on this device"],
+  app_activity: ["App activity", "Apps opened, closed and switched to"],
+};
+const ERRORS = {
+  permission_denied: "Permission denied",
+  unavailable: "Unavailable",
+  unsupported_platform: "Not supported on this system",
+  timeout: "Timed out",
+  internal: "Something went wrong",
+};
+
+const $ = (id) => document.getElementById(id);
+const rows = {};   // source name -> its elements
+let state = null;
+let notice = null; // {text, until}: error from the last edit
+
+function label(name) {
+  return LABELS[name] || [name.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase()), ""];
+}
+
+// Timestamps arrive in UTC; they are shown in local time.
+function ago(iso) {
+  const then = new Date(iso);
+  const seconds = Math.max(0, Math.round((Date.now() - then) / 1000));
+  if (seconds < 5) return "just now";
+  if (seconds < 60) return seconds + "s ago";
+  if (seconds < 3600) return Math.floor(seconds / 60) + " min ago";
+  const time = then.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+  const today = then.toDateString() === new Date().toDateString();
+  return "at " + (today ? time : then.toLocaleDateString([], {month: "short", day: "numeric"}) + ", " + time);
+}
+
+function describe(source, core) {
+  if (!source.enabled) return ["", "Off"];
+  if (core !== "running") return ["", source.last_ok ? "Paused · last recorded " + ago(source.last_ok) : "Paused"];
+  const error = source.last_error;
+  if (error) return ["err", (ERRORS[error.code] || error.code) + (error.message ? ": " + error.message : "")];
+  if (!source.running) return ["wait pulse", "Starting…"];
+  if (source.last_ok) return ["ok", "Recorded " + ago(source.last_ok)];
+  return ["ok", "Running · nothing recorded yet"];
+}
+
+function build(source) {
+  const [title, about] = label(source.name);
+  const el = document.createElement("div");
+  el.className = "source";
+  el.innerHTML = `
+    <div class="row">
+      <div><div class="name"></div><div class="about"></div></div>
+      <label class="switch"><input type="checkbox"><i></i></label>
+    </div>
+    <div class="row meta">
+      <div class="state"><span class="dot"></span><span></span></div>
+      <label class="every">every <input type="number" min="1" step="1" inputmode="decimal"> s</label>
+    </div>`;
+  el.querySelector(".name").textContent = title;
+  el.querySelector(".about").textContent = about;
+  const row = {
+    el,
+    check: el.querySelector(".switch input"),
+    state: el.querySelector(".state"),
+    dot: el.querySelector(".state .dot"),
+    text: el.querySelector(".state span:last-child"),
+    interval: el.querySelector(".every input"),
+  };
+  row.check.setAttribute("aria-label", title);
+  row.check.addEventListener("change", () => call("set_enabled", source.name, row.check.checked));
+  row.interval.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") row.interval.blur();
+    if (e.key === "Escape") { row.interval.value = row.saved; row.interval.blur(); }
+  });
+  row.interval.addEventListener("input", () => row.interval.classList.remove("bad"));
+  row.interval.addEventListener("blur", () => {
+    const seconds = Number(row.interval.value);
+    if (row.interval.value.trim() === "" || !(seconds > 0)) {
+      row.interval.value = row.saved;
+      row.interval.classList.remove("bad");
+    } else if (seconds !== row.saved) {
+      call("set_interval", source.name, seconds);
+    }
+  });
+  $("list").appendChild(el);
+  return row;
+}
+
+function render() {
+  if (!state) return;
+  const core = state.core;
+  const running = core === "running";
+  const failing = running && state.sources.some((s) => s.enabled && s.last_error);
+
+  $("core-dot").className = "dot " + (core === "stopping" ? "wait pulse" : running ? "ok" : "");
+  $("core-text").textContent =
+    core === "stopping" ? "Stopping…" : running ? (failing ? "Collecting, with errors" : "Collecting") : "Not collecting";
+  const toggle = $("toggle");
+  toggle.textContent = running ? "Stop" : core === "stopping" ? "Stopping…" : "Start";
+  toggle.className = "primary" + (running ? " quiet" : "");
+  toggle.disabled = core === "stopping";
+
+  for (const source of state.sources) {
+    const row = rows[source.name] || (rows[source.name] = build(source));
+    const [kind, text] = describe(source, core);
+    row.el.classList.toggle("off", !source.enabled);
+    row.check.checked = source.enabled;
+    row.state.className = "state " + (kind === "err" ? "err" : "");
+    row.dot.className = "dot " + kind;
+    row.text.textContent = text;
+    row.text.title = kind === "err" ? text : "";
+    row.saved = source.interval;
+    if (document.activeElement !== row.interval) row.interval.value = source.interval;
+  }
+
+  if (notice && Date.now() > notice.until) notice = null;
+  const message = state.config_error ? "Settings file could not be read: " + state.config_error : notice && notice.text;
+  $("notice").hidden = !message;
+  $("notice").textContent = message || "";
+  $("veil").classList.toggle("on", state.closing);
+}
+
+// A poll that overlaps an edit can carry the state from before it, so it is
+// dropped: "changes" moves when an edit starts or ends, "busy" counts edits in
+// flight. stop() can take a while, so polls continue during it and are shown
+// as "stopping" until it returns.
+let changes = 0;
+let busy = 0;
+let stopping = false;
+
+async function call(method, ...args) {
+  const poll = method === "get_state";
+  const stop = method === "stop";
+  const seen = changes;
+  if (stop) stopping = true;
+  else if (!poll) { busy++; changes++; }
+  let result = null;
+  try {
+    result = await window.pywebview.api[method](...args);
+  } catch (e) {
+    notice = {text: String((e && e.message) || e), until: Date.now() + 6000};
+  }
+  if (stop) stopping = false;
+  else if (!poll) busy--;
+  if (!poll) changes++;
+  if (result && result.sources && busy === 0 && (!poll || changes === seen)) state = result;
+  if (result && result.error) notice = {text: result.error, until: Date.now() + 6000};
+  if (state && stopping && state.core === "running") state.core = "stopping";
+  render();
+}
+
+$("toggle").addEventListener("click", () => {
+  const stop = state && state.core === "running";
+  if (stop) { state.core = "stopping"; render(); }
+  call(stop ? "stop" : "start");
+});
+$("folder").addEventListener("click", () => call("open_data_folder"));
+
+let started = false;
+function boot() {
+  if (started || !window.pywebview || !window.pywebview.api || !window.pywebview.api.get_state) return;
+  started = true;
+  call("get_state");
+  setInterval(() => call("get_state"), 1000);
+}
+window.addEventListener("pywebviewready", boot);
+boot();
+</script>
+</body>
+</html>
