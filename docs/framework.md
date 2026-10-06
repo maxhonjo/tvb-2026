@@ -36,7 +36,8 @@ Built by Max (core, Mac sources) and Martin (Windows modules, UI).
 # repo layout
 
 ```
-core.py              poll loop, live config sync, record envelope, error mapping, handle() sink
+core.py              poll loop, live config sync, record envelope, error mapping, handle() sink,
+                     start()/stop() for shells, status file
 config.py            read/write/edit ~/.boku/config.json
 sources/             one folder per source + errors.py
 storage/storage.py   store(record): one JSON line per record, filetree diffing
@@ -226,7 +227,10 @@ listener source. Martin has a Windows version in `martin-temp/`.
    source is not started.
 4. `stop_source()`: sets that source's stop Event, joins its thread, then calls
    `stop_<name>()` for a listener.
-5. On SIGINT, every running source is stopped the same way.
+5. When the core is told to stop, every running source is stopped the same
+   way. `run()` itself installs no signal handler: `python core.py` installs
+   the SIGINT one, and a shell uses `core.stop()` (see "driving the core from a
+   shell").
 
 Details:
 - With nothing enabled the core logs "no enabled sources" and idles until a
@@ -247,6 +251,76 @@ Details:
   `PRINT_LIMIT = 200` characters; storage always gets the full record.
 
 
+# driving the core from a shell
+
+A shell (GUI, CLI, service) either runs the core inside its own process or
+watches a core running in another process. Both read the same status.
+
+**Start and stop (in-process)**
+```py
+import core            # from the repo root, so `sources` imports resolve
+
+core.start()           # runs the core on a background thread; returns at once
+core.is_running()      # True while that thread is alive
+core.stop()            # blocks until every source is stopped, listeners released
+core.start()           # can be started again afterwards
+```
+- `start()` does nothing if the core is already running. `stop()` does nothing
+  if it is not.
+- `stop()` waits for polls in flight, so it can block for up to `POLL_TIMEOUT`
+  (30s). Call it off the UI thread if that matters.
+- The core thread and the poll threads are not daemon threads: call `stop()`
+  before the shell exits, or the process will not exit.
+- `is_running()` only knows about a core started with `start()` in this
+  process. For any other core, read the status file.
+- Which sources run is still controlled through the config
+  (`config.set_enabled()`, `config.set_interval()`); the running core picks
+  changes up within 0.5s. There is no per-source start/stop call.
+- Run one core at a time. Two cores (two processes, or a shell plus
+  `python core.py`) would both poll and overwrite each other's status.
+- The core still prints every record to stdout.
+
+**Status**: `core.status()` in-process, or `~/.boku/status.json`
+(`core.STATUS_PATH`) from any process. Same shape:
+```json
+{"running": true,
+ "updated": "2026-10-06T18:02:11Z",
+ "sources": {
+   "location":   {"running": true, "last_ok": "2026-10-06T18:02:10Z", "last_error": null},
+   "keystrokes": {"running": false, "last_ok": null,
+                  "last_error": {"code": "unavailable", "message": "...",
+                                 "timestamp": "2026-10-06T18:02:09Z"}}}}
+```
+- Top-level `running`: the core is running. `updated`: when the file was last
+  written.
+- `sources` has an entry for every source in `config.DEFAULTS`.
+  - `running`: its poll thread is running. An enabled source that failed to
+    start has `running: false` and a `last_error`.
+  - `last_ok`: poll time of its last successful record, or `null`. An empty
+    listener poll does not move it.
+  - `last_error`: the latest error (codes as in "output shape") with the poll
+    time it happened, or `null`. Any later successful poll clears it, including
+    an empty listener poll.
+- All times are UTC, as everywhere else.
+- The core writes the file (atomically) when the status changes, checked every
+  0.5s, and at least every `HEARTBEAT` (5s) while it runs. On a clean stop it
+  writes `running: false` with every source not running.
+- **A crashed or killed core leaves `running: true` behind.** A reader in
+  another process must treat the core as dead when `updated` is more than
+  about 15s old. The file may also not exist yet if no core has ever run.
+- Status is reset each time the core starts: `last_ok` and `last_error` do not
+  carry over from the previous run. Within a run, a source keeps its
+  `last_error` after being disabled.
+- `core.status()` returns a copy. Its `running` fields are refreshed every
+  0.5s, so right after `start()` or `stop()` use `is_running()` instead.
+- A core that is force-killed (SIGKILL, or a shell that is force-quit) cannot
+  clean up: the `app-activity-mac` helper keeps running, reparented to launchd,
+  one per kill. Nothing detects or removes these yet.
+- Restarting the core in-process does not write a new filetree baseline
+  (storage keeps its snapshot in memory for the life of the process); only a
+  new process does.
+
+
 # storage
 
 `storage/storage.py` exposes `store(record)`, re-exported by
@@ -257,7 +331,9 @@ Details:
 - **Data location**: `~/.boku/data`, next to the config, so nothing depends on
   the repo's path. The path is `DATA_DIR` in `storage/storage.py`, built from
   `config.CONFIG_DIR`.
-- **Error records are not stored**, only printed.
+- **Error records are not stored**, only printed. The latest error per source
+  is kept in `~/.boku/status.json` by the core (see "driving the core from a
+  shell").
 - One lock guards all writes. `store()` raises if a write fails; `handle()`
   catches it.
 
@@ -308,6 +384,13 @@ not follow the source contract above.
   with a stub helper, not by revoking the real permission.
 - 2026-10-03, Windows: the core loop, config path, error isolation, and shutdown
   were verified. Not re-run since the envelope change.
+- 2026-10-06, Mac: `core.start()` / `core.stop()` and the status file were
+  verified with a throwaway script against a temporary home directory: start
+  from a non-main thread, double start/stop, restart in-process, listener
+  helper released on every stop, `core.status()` and `status.json` agreeing,
+  error and `last_ok` fields, live disable, heartbeat, `python core.py` with
+  SIGINT, and the stale file after `kill -9`. Not covered: location, `stop()`
+  during a slow in-flight poll, Windows.
 - There are no automated tests in the repo.
 
 
@@ -327,7 +410,27 @@ From `docs/roadmap.md`, in order.
 - Deriving app usage sessions from `opened` / `closed` events belongs in
   storage or downstream, not in the source.
 
-**2. To figure out**: UI (CLI vs GUI), add-ons, presentation
+**2. New UI** (next task)
+A shell that runs the core in-process and shows what each source is doing. The
+core side is done; everything a UI needs is in "driving the core from a shell"
+and the `config.py` edit API. Nothing in `core.py`, `config.py`, `sources/`, or
+`storage/` should need to change for it.
+- Start/stop the core: `core.start()`, `core.stop()`, `core.is_running()`.
+- Turn sources on/off and set intervals: `config.set_enabled()`,
+  `config.set_interval()`; read current values with `config.load()`.
+- Show per-source state: poll `core.status()` (about once a second is enough)
+  for `running`, `last_ok`, `last_error`. Combine with the config's `enabled`
+  to tell "disabled" from "enabled but failed".
+- Source names to use everywhere: the keys of `config.DEFAULTS["sources"]`.
+- Things the UI has to handle itself: call `core.stop()` off the UI thread (it
+  can block up to 30s) and always before exit; convert UTC times to local for
+  display; the core's records still go to stdout, not to the UI.
+- Not decided yet: toolkit (stdlib only means tkinter for a GUI), whether to
+  adapt Martin's `ui/ui.py` or start fresh, and where the new file lives.
+- Known gap: no cleanup of helpers orphaned by a force-quit (see "driving the
+  core from a shell").
+
+**3. To figure out**: add-ons, presentation
 (Presentation II is 2026-10-07, 15:12).
 
 **Later**: keystrokes on Mac, Windows backends per source, bringing Martin's
