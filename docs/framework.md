@@ -12,7 +12,7 @@ Last updated: 2026-10-06.
 Boku (working name; "Alibi" was the other candidate) collects a person's own
 activity data from their devices. Small independent **sources** each gather one
 kind of data; the **core** polls them, wraps each result in a standard record,
-and passes it on (printing today, storage next). Add-on ideas built on the
+prints it, and stores it as a line in a text file. Add-on ideas built on the
 collected data: an `/impersonate-me` skill and a data marketplace.
 
 Built by Max (core, Mac sources) and Martin (Windows modules, UI).
@@ -39,6 +39,8 @@ Built by Max (core, Mac sources) and Martin (Windows modules, UI).
 core.py              poll loop, live config sync, record envelope, error mapping, handle() sink
 config.py            read/write/edit ~/.boku/config.json
 sources/             one folder per source + errors.py
+storage/storage.py   store(record): one JSON line per record, filetree diffing
+data/                stored records, one <source>.jsonl per source (gitignored)
 ui/ui.py             tkinter UI mockup (Martin), not wired to the core
 martin-temp/         Martin's Windows modules, not integrated
 docs/framework.md    this file
@@ -46,7 +48,7 @@ docs/roadmap.md      Max's checklist (gitignored, local only)
 docs/ai-guides/      older planning notes (superseded by this file)
 ```
 
-Gitignored: both compiled Swift helpers, `roadmap.md`, `test.py`. A fresh clone
+Gitignored: both compiled Swift helpers, `data/`, `roadmap.md`, `test.py`. A fresh clone
 has to build the helpers before location and app_activity work.
 
 **Run the core** from the repo root (so `sources` imports resolve):
@@ -113,7 +115,7 @@ The core wraps every poll in one envelope (`core.make_record`):
 ```
 - `timestamp` on the envelope is the poll time, set by the core.
 - `data` is whatever the source returned. Source-specific times live inside it.
-- Every record goes through `core.handle(record)` (prints now, storage later).
+- Every record goes through `core.handle(record)`, which stores it and prints it.
 - A listener poll with no events (`{"events": []}`) produces no record.
 
 **timestamps**: always UTC ISO-8601 with `Z`, always under the key `timestamp`
@@ -168,7 +170,7 @@ darwin.
   Downloads, or iCloud Drive can trigger macOS permission prompts for the
   launching app.
 - On Max's Mac one walk takes under a second and the record is about 2 MB of
-  text, which matters for storage (see "next up").
+  text, which is why storage keeps only diffs for it (see "storage").
 
 ## app_activity (listener)
 
@@ -241,6 +243,36 @@ Details:
   abandoned as a daemon thread and keeps running in the background.
 - One source failing never affects the others.
 - `log()` holds a print lock so lines do not interleave.
+- `handle(record)` calls `storage.store(record)`, then prints. A failed write is
+  logged as `storage error` and polling continues. Printed data is cut to
+  `PRINT_LIMIT = 200` characters; storage always gets the full record.
+
+
+# storage
+
+`storage/storage.py` exposes `store(record)`, re-exported by
+`storage/__init__.py`. The core is its only caller.
+
+- Each record is appended as one JSON line (the full envelope) to
+  `data/<source>.jsonl`. Files are append-only and never rotated.
+- **Data location**: `data/` in the repo, gitignored, for now. For deployment
+  this should (possibly) move to `~/.boku/data`, since a compiled app has no
+  repo to write into. The path is `DATA_DIR` in `storage/storage.py`.
+- **Error records are not stored**, only printed.
+- One lock guards all writes. `store()` raises if a write fails; `handle()`
+  catches it.
+
+**filetree** is stored as a baseline plus diffs:
+- The first record of each core run is stored whole (`data` has `root` and
+  `paths`). That is the baseline.
+- Later records are stored with `data` as `{"root", "added", "removed"}`,
+  compared with the previous snapshot, which is held in memory.
+- A poll with no changes stores nothing.
+- A core restart writes a fresh baseline. Changing the interval or disabling
+  and re-enabling the source does not.
+- A rename shows up as one removed and one added path.
+- While `data/` is inside the home directory, the walk sees the storage files
+  themselves, so their creation appears once as `added` paths.
 
 
 # not integrated yet
@@ -261,6 +293,9 @@ not follow the source contract above.
 
 # status
 
+- 2026-10-06, Mac: storage was verified against a running core with a throwaway
+  script (baseline, added/removed diffs, no write on unchanged polls, restart
+  baseline, errors not stored, failed write survives) and by a manual run.
 - 2026-10-06, Mac: live config changes (enable, disable, interval, malformed
   file, listener start/stop, SIGINT) were verified against a running core with
   a throwaway script. Not covered: disabling a source mid-poll, and a first run
@@ -277,17 +312,15 @@ not follow the source contract above.
 
 From `docs/roadmap.md`, in order.
 
-**1. Storage (simple text file for now)**
-- Hook point is `core.handle(record)`; every record already passes through it.
-- Earlier plan: append each record as one line to `~/.boku/<source>.jsonl`.
-- Decide whether error records are stored or only printed.
-- filetree needs different treatment because of its size. Plan: store the first
-  snapshot as a baseline, then per poll store only
-  `{timestamp, added, removed}` (`new - old`, `old - new` on the path sets),
-  skip when both are empty, and write a fresh baseline now and then. A rename
-  shows up as one removed and one added path.
-- Deriving app usage sessions from `opened` / `closed` events belongs here too,
-  not in the source.
+**1. Storage follow-ups** (simple storage is in; these are what it leaves open)
+- Move `DATA_DIR` out of the repo before packaging (see "storage").
+- Location is stored on every poll even when the position has not changed.
+- Files grow without limit, and every core restart adds a ~2 MB filetree
+  baseline.
+- There is no way to read the data back yet (rebuilding a filetree means
+  replaying diffs from the latest baseline).
+- Deriving app usage sessions from `opened` / `closed` events belongs in
+  storage or downstream, not in the source.
 
 **2. To figure out**: UI (CLI vs GUI), add-ons, presentation
 (Presentation II is 2026-10-07, 15:12).

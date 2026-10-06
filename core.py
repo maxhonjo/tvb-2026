@@ -4,11 +4,14 @@ import threading
 from datetime import datetime, timezone
 
 import config
+import storage
 from sources.errors import SourceError
 
 # Cap on a single poll; a poll exceeding this yields a timeout error record and
 # the loop continues.
 POLL_TIMEOUT = 30
+# Printed records are cut to this many characters; storage gets the full record.
+PRINT_LIMIT = 200
 
 stop = threading.Event()
 print_lock = threading.Lock()
@@ -44,9 +47,16 @@ def to_error(exc):
 
 
 def handle(record):
-    """Single sink for every record. Prints for now; storage hooks in here."""
+    """Single sink for every record: store it, then print it."""
+    try:
+        storage.store(record)
+    except Exception as e:  # a failed write must not kill the poll thread
+        log(record["source"], f"storage error: {type(e).__name__}: {e}")
     if record["ok"]:
-        log(record["source"], record["data"])
+        text = str(record["data"])
+        if len(text) > PRINT_LIMIT:
+            text = f"{text[:PRINT_LIMIT]}... ({len(text)} chars)"
+        log(record["source"], text)
     else:
         error = record["error"]
         log(record["source"], f"error [{error['code']}]: {error['message']}")
