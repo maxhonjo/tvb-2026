@@ -3,6 +3,8 @@ import subprocess
 import threading
 from pathlib import Path
 
+from ...errors import SourceError
+
 BINARY = Path(__file__).parent / "app-activity-mac"
 
 
@@ -21,14 +23,20 @@ class Listener:
     def start(self):
         if self._proc is not None:  # idempotent
             return
-        self._proc = subprocess.Popen(
-            [str(BINARY)],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            text=True,
-        )
+        try:
+            self._proc = subprocess.Popen(
+                [str(BINARY)],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                text=True,
+            )
+        except OSError as e:
+            raise SourceError("unavailable", f"cannot run helper {BINARY}: {e}")
         self._reader = threading.Thread(target=self._read, daemon=True)
         self._reader.start()
+
+    def alive(self):
+        return self._proc is not None and self._proc.poll() is None
 
     def _read(self):
         for line in self._proc.stdout:

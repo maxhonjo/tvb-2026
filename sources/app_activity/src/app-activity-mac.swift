@@ -13,7 +13,7 @@ func emit(_ event: String, _ app: NSRunningApplication) {
         "name": app.localizedName ?? "",
         "id": app.bundleIdentifier ?? "",
         "pid": app.processIdentifier,
-        "at": iso.string(from: Date()),
+        "timestamp": iso.string(from: Date()),
     ]
     if let data = try? JSONSerialization.data(withJSONObject: payload),
        let line = String(data: data, encoding: .utf8) {

@@ -1,6 +1,7 @@
 import sys
 import threading
 
+from ..errors import SourceError
 from .src.mac import Listener
 
 
@@ -34,11 +35,16 @@ def start_app_activity() -> None:
         _listener = Listener(_mailbox)
         _listener.start()
         return
-    raise NotImplementedError(f"Unsupported platform: {sys.platform}")
+    raise SourceError("unsupported_platform", f"Unsupported platform: {sys.platform}")
 
 
 def get_app_activity() -> dict:
-    return {"events": _mailbox.drain()}
+    events = _mailbox.drain()
+    # A dead helper would otherwise look like "no activity" forever. Events it
+    # buffered before dying are still returned; the next poll reports the error.
+    if not events and _listener is not None and not _listener.alive():
+        raise SourceError("unavailable", "app activity helper is not running")
+    return {"events": events}
 
 
 def stop_app_activity() -> None:
