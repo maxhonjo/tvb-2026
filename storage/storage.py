@@ -1,11 +1,10 @@
 import json
 import threading
-from pathlib import Path
 
-# Data is kept inside the repo (gitignored) for now, one <source>.jsonl per source.
-# NOTE: for deployment this should (possibly) move to ~/.boku/data, next to the
-# config; a compiled app has no repo to write into.
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+from config import CONFIG_DIR
+
+# Data lives next to the config in ~/.boku/data, one <source>.jsonl per source.
+DATA_DIR = CONFIG_DIR / "data"
 
 lock = threading.Lock()
 # Paths from the last stored filetree snapshot; None until this run's baseline.

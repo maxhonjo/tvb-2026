@@ -40,7 +40,6 @@ core.py              poll loop, live config sync, record envelope, error mapping
 config.py            read/write/edit ~/.boku/config.json
 sources/             one folder per source + errors.py
 storage/storage.py   store(record): one JSON line per record, filetree diffing
-data/                stored records, one <source>.jsonl per source (gitignored)
 ui/ui.py             tkinter UI mockup (Martin), not wired to the core
 martin-temp/         Martin's Windows modules, not integrated
 docs/framework.md    this file
@@ -48,7 +47,7 @@ docs/roadmap.md      Max's checklist (gitignored, local only)
 docs/ai-guides/      older planning notes (superseded by this file)
 ```
 
-Gitignored: both compiled Swift helpers, `data/`, `roadmap.md`, `test.py`. A fresh clone
+Gitignored: both compiled Swift helpers, `roadmap.md`, `test.py`. A fresh clone
 has to build the helpers before location and app_activity work.
 
 **Run the core** from the repo root (so `sources` imports resolve):
@@ -254,10 +253,10 @@ Details:
 `storage/__init__.py`. The core is its only caller.
 
 - Each record is appended as one JSON line (the full envelope) to
-  `data/<source>.jsonl`. Files are append-only and never rotated.
-- **Data location**: `data/` in the repo, gitignored, for now. For deployment
-  this should (possibly) move to `~/.boku/data`, since a compiled app has no
-  repo to write into. The path is `DATA_DIR` in `storage/storage.py`.
+  `~/.boku/data/<source>.jsonl`. Files are append-only and never rotated.
+- **Data location**: `~/.boku/data`, next to the config, so nothing depends on
+  the repo's path. The path is `DATA_DIR` in `storage/storage.py`, built from
+  `config.CONFIG_DIR`.
 - **Error records are not stored**, only printed.
 - One lock guards all writes. `store()` raises if a write fails; `handle()`
   catches it.
@@ -270,9 +269,13 @@ Details:
 - A poll with no changes stores nothing.
 - A core restart writes a fresh baseline. Changing the interval or disabling
   and re-enabling the source does not.
+- Each baseline is about 2 MB, so `~/.boku/data/filetree.jsonl` grows with every
+  restart. Until rotation exists, Max deletes the file by hand every so often.
+  Delete it only while the core is stopped: a running core keeps writing diffs
+  against its in-memory snapshot, which would leave a file with no baseline.
 - A rename shows up as one removed and one added path.
-- While `data/` is inside the home directory, the walk sees the storage files
-  themselves, so their creation appears once as `added` paths.
+- The walk skips dot-folders, so the storage files under `~/.boku` never appear
+  in the filetree data.
 
 
 # not integrated yet
@@ -313,12 +316,14 @@ not follow the source contract above.
 From `docs/roadmap.md`, in order.
 
 **1. Storage follow-ups** (simple storage is in; these are what it leaves open)
-- Move `DATA_DIR` out of the repo before packaging (see "storage").
-- Location is stored on every poll even when the position has not changed.
-- Files grow without limit, and every core restart adds a ~2 MB filetree
-  baseline.
-- There is no way to read the data back yet (rebuilding a filetree means
-  replaying diffs from the latest baseline).
+- Rotation / cleanup: files grow without limit, and every core restart adds a
+  ~2 MB filetree baseline.
+- Location is stored on every poll even when the position has not changed
+  (default interval is 300s, which keeps this small).
+- Reading the data back is not the core's job. Everything that uses the data is
+  a separate, standalone app under `add-ons/`, reading the `.jsonl` files in
+  `~/.boku/data` directly. A simple reader is the first one planned. (Rebuilding a filetree
+  means replaying diffs from the latest baseline.)
 - Deriving app usage sessions from `opened` / `closed` events belongs in
   storage or downstream, not in the source.
 
