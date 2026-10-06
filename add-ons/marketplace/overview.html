@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marketplace Overview</title>
+<style>
+  :root {
+    --bg: #F6F6F4;
+    --card: #FFFFFF;
+    --line: #E7E6E2;
+    --text: #1B1B19;
+    --muted: #76756F;
+    --faint: #A9A8A2;
+    --accent: #1B1B19;
+    --on-accent: #FFFFFF;
+    --ok: #2E9E6A;
+    --ok-soft: rgba(46, 158, 106, .16);
+    --warn: #C98A1B;
+    --warn-soft: rgba(201, 138, 27, .16);
+    --track: #D9D8D3;
+    --bar: #1B1B19;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161615;
+      --card: #1F1F1E;
+      --line: #2E2E2C;
+      --text: #F1F0EC;
+      --muted: #9C9B95;
+      --faint: #6B6A65;
+      --accent: #F1F0EC;
+      --on-accent: #161615;
+      --ok: #45BD85;
+      --ok-soft: rgba(69, 189, 133, .18);
+      --warn: #E0A53A;
+      --warn-soft: rgba(224, 165, 58, .18);
+      --track: #3A3A38;
+      --bar: #C9C8C2;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 900px; margin: 0 auto; padding: 28px 24px 40px; }
+  a { color: var(--text); }
+
+  header { margin-bottom: 24px; }
+  h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -.03em; }
+  header p { margin: 6px 0 0; color: var(--muted); }
+  .proto {
+    display: inline-block;
+    margin-left: 10px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: var(--warn-soft);
+    color: var(--warn);
+    font-size: 11px;
+    font-weight: 600;
+    vertical-align: middle;
+  }
+
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+  @media (max-width: 640px) { .tiles { grid-template-columns: 1fr; } }
+  .tile {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px;
+  }
+  .tile .k { color: var(--muted); font-size: 12.5px; }
+  .tile .v { font-size: 26px; font-weight: 700; letter-spacing: -.03em; margin-top: 2px; }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 18px 18px 6px;
+  }
+  .panel h2 { margin: 0 0 2px; font-size: 16px; font-weight: 700; }
+  .panel .sub { margin: 0 0 14px; color: var(--muted); font-size: 13px; }
+
+  .row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px 16px;
+    padding: 14px 0;
+    border-top: 1px solid var(--line);
+  }
+  .row:first-of-type { border-top: 0; }
+  .row .name { font-weight: 600; }
+  .row .badge {
+    margin-left: 6px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--warn-soft);
+    color: var(--warn);
+    font-size: 10.5px;
+    font-weight: 600;
+  }
+  .row .nums { text-align: right; white-space: nowrap; }
+  .row .nums b { font-weight: 700; }
+  .row .nums .per { color: var(--muted); font-weight: 600; }
+  .row .nums .mkt { color: var(--muted); font-size: 12px; display: block; margin-top: 1px; }
+  .track {
+    grid-column: 1 / -1;
+    height: 7px;
+    background: var(--track);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .fill { height: 100%; background: var(--bar); border-radius: 999px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Global overview<span class="proto">prototype</span></h1>
+    <p>How many people share each data type and what each earns per month. All figures are mock. <a href="/">← Back to the marketplace</a></p>
+  </header>
+
+  <div class="tiles">
+    <div class="tile"><div class="k">People sharing</div><div class="v" id="t-users">—</div></div>
+    <div class="tile"><div class="k">Data types</div><div class="v" id="t-types">—</div></div>
+    <div class="tile"><div class="k">Avg. paid per person</div><div class="v" id="t-avg">—</div></div>
+  </div>
+
+  <section class="panel">
+    <h2>By data type</h2>
+    <p class="sub">Opt-in count, the monthly payout per sharer, and the total monthly market.</p>
+    <div id="rows"></div>
+  </section>
+</main>
+
+<script>
+  const nf = new Intl.NumberFormat("en-US");
+
+  async function load() {
+    const cat = await (await fetch("/api/catalog")).json();
+    const types = cat.data_types;
+    const maxUsers = Math.max(...types.map((d) => d.users));
+    const totalUsers = types.reduce((s, d) => s + d.users, 0);
+    const totalMarket = types.reduce((s, d) => s + d.users * d.value_usd, 0);
+    const payouts = types.map((d) => d.value_usd);
+
+    document.getElementById("t-users").textContent = nf.format(totalUsers);
+    document.getElementById("t-types").textContent = types.length;
+    document.getElementById("t-avg").textContent =
+      "$" + (payouts.reduce((a, b) => a + b, 0) / payouts.length).toFixed(2);
+
+    const wrap = document.getElementById("rows");
+    for (const d of types) {
+      const market = d.users * d.value_usd;
+      const row = document.createElement("div");
+      row.className = "row";
+      row.innerHTML = `
+        <div class="name">${d.label}${d.prod_disabled ? '<span class="badge">disabled in production</span>' : ""}</div>
+        <div class="nums">
+          <b>${nf.format(d.users)}</b> sharers · <span class="per">$${d.value_usd.toFixed(2)}/mo each</span>
+          <span class="mkt">$${nf.format(Math.round(market))}/mo total market</span>
+        </div>
+        <div class="track"><div class="fill" style="width:${(d.users / maxUsers) * 100}%"></div></div>`;
+      wrap.appendChild(row);
+    }
+  }
+  load();
+</script>
+</body>
+</html>

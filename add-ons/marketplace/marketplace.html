@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boku Marketplace</title>
+<style>
+  :root {
+    --bg: #F6F6F4;
+    --card: #FFFFFF;
+    --line: #E7E6E2;
+    --text: #1B1B19;
+    --muted: #76756F;
+    --faint: #A9A8A2;
+    --accent: #1B1B19;
+    --on-accent: #FFFFFF;
+    --ok: #2E9E6A;
+    --ok-soft: rgba(46, 158, 106, .16);
+    --warn: #C98A1B;
+    --warn-soft: rgba(201, 138, 27, .16);
+    --err: #D0463B;
+    --track: #D9D8D3;
+    --field: #F2F1EE;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161615;
+      --card: #1F1F1E;
+      --line: #2E2E2C;
+      --text: #F1F0EC;
+      --muted: #9C9B95;
+      --faint: #6B6A65;
+      --accent: #F1F0EC;
+      --on-accent: #161615;
+      --ok: #45BD85;
+      --ok-soft: rgba(69, 189, 133, .18);
+      --warn: #E0A53A;
+      --warn-soft: rgba(224, 165, 58, .18);
+      --err: #EF6B60;
+      --track: #3A3A38;
+      --field: #2A2A28;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  main {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 28px 24px 40px;
+  }
+  a { color: var(--text); }
+
+  header { margin-bottom: 24px; }
+  h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -.03em; }
+  header p { margin: 6px 0 0; color: var(--muted); }
+  .proto {
+    display: inline-block;
+    margin-left: 10px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: var(--warn-soft);
+    color: var(--warn);
+    font-size: 11px;
+    font-weight: 600;
+    vertical-align: middle;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 820px) { .layout { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 18px;
+  }
+  .panel h2 {
+    margin: 0 0 4px;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -.01em;
+  }
+  .panel .sub { margin: 0 0 14px; color: var(--muted); font-size: 13px; }
+
+  /* opt-in column */
+  .total {
+    position: sticky;
+    top: 0;
+    margin: -18px -18px 16px;
+    padding: 18px;
+    border-bottom: 1px solid var(--line);
+    background: var(--card);
+    border-radius: 16px 16px 0 0;
+  }
+  .total .label { color: var(--muted); font-size: 13px; }
+  .total .amt {
+    font-size: 34px;
+    font-weight: 700;
+    letter-spacing: -.03em;
+    line-height: 1.1;
+  }
+  .total .amt small { font-size: 15px; font-weight: 600; color: var(--muted); }
+  .total .count { margin-top: 2px; color: var(--muted); font-size: 12px; }
+
+  .opt {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 0;
+    border-top: 1px solid var(--line);
+  }
+  .opt:first-of-type { border-top: 0; }
+  .opt .meta { flex: 1; min-width: 0; }
+  .opt .name { font-weight: 600; }
+  .opt .blurb { color: var(--muted); font-size: 12.5px; margin-top: 1px; }
+  .opt .price { color: var(--ok); font-size: 12.5px; font-weight: 600; margin-top: 3px; }
+  .badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--warn-soft);
+    color: var(--warn);
+    font-size: 10.5px;
+    font-weight: 600;
+  }
+
+  /* toggle */
+  .switch { position: relative; flex: none; width: 42px; height: 24px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute; inset: 0;
+    background: var(--track);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .slider::before {
+    content: "";
+    position: absolute;
+    width: 18px; height: 18px;
+    left: 3px; top: 3px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform .15s;
+  }
+  .switch input:checked + .slider { background: var(--ok); }
+  .switch input:checked + .slider::before { transform: translateX(18px); }
+  .switch input:focus-visible + .slider { outline: 2px solid var(--ok); outline-offset: 2px; }
+
+  /* bounties */
+  .you {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    background: var(--ok-soft);
+    border: 1px solid transparent;
+    border-radius: 12px;
+    font-size: 13px;
+  }
+  .you .check {
+    flex: none;
+    width: 22px; height: 22px;
+    display: grid; place-items: center;
+    background: var(--ok);
+    color: #fff;
+    border-radius: 50%;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .bounty {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .bounty.hot { border-color: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); }
+  .bounty .top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .bounty .company { color: var(--muted); font-size: 12.5px; font-weight: 600; }
+  .bounty .reward { font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
+  .bounty .title { margin: 4px 0 2px; font-weight: 600; }
+  .bounty .ask { color: var(--muted); font-size: 13px; }
+  .bounty .foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .bounty .needs { color: var(--faint); font-size: 12px; }
+  .bounty .vbadge {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: var(--ok-soft);
+    color: var(--ok);
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+
+  button.claim {
+    flex: none;
+    height: 34px;
+    padding: 0 16px;
+    border: 1px solid var(--accent);
+    border-radius: 17px;
+    background: var(--accent);
+    color: var(--on-accent);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity .15s;
+  }
+  button.claim:hover:not(:disabled) { opacity: .82; }
+  button.claim.quiet { background: transparent; color: var(--text); border-color: var(--line); }
+  button.claim:disabled { opacity: .4; cursor: default; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Boku Marketplace<span class="proto">prototype</span></h1>
+    <p>Choose what data to sell, see what it's worth, and claim company bounties. Nothing here is real — all values are mock and no data leaves your machine. <a href="/overview">See the global overview →</a></p>
+  </header>
+
+  <div class="layout">
+    <!-- left: opt-in -->
+    <section class="panel" aria-label="Opt in">
+      <div class="total">
+        <div class="label">Estimated value</div>
+        <div class="amt" id="total">$0 <small>/mo</small></div>
+        <div class="count" id="count">Nothing shared yet</div>
+      </div>
+      <div id="opts"></div>
+    </section>
+
+    <!-- right: bounties -->
+    <section class="panel" aria-label="Bounties">
+      <h2>Data bounties</h2>
+      <p class="sub">Companies paying for specific data.</p>
+      <div class="you" id="you" hidden></div>
+      <div id="bounties"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+  let CATALOG = null;
+  const selected = new Set();
+
+  async function load() {
+    CATALOG = await (await fetch("/api/catalog")).json();
+    renderOpts();
+    renderYou();
+    renderBounties();
+    update();
+  }
+
+  function renderOpts() {
+    const wrap = document.getElementById("opts");
+    wrap.innerHTML = "";
+    for (const d of CATALOG.data_types) {
+      const row = document.createElement("label");
+      row.className = "opt";
+      row.innerHTML = `
+        <div class="meta">
+          <div class="name">${d.label}${d.prod_disabled ? '<span class="badge">disabled in production</span>' : ""}</div>
+          <div class="blurb">${d.blurb}</div>
+          <div class="price">+$${d.value_usd.toFixed(2)}/mo</div>
+        </div>
+        <span class="switch">
+          <input type="checkbox" data-id="${d.id}" aria-label="Share ${d.label}">
+          <span class="slider"></span>
+        </span>`;
+      const box = row.querySelector("input");
+      box.addEventListener("change", () => {
+        box.checked ? selected.add(d.id) : selected.delete(d.id);
+        update();
+        renderBounties();
+      });
+      wrap.appendChild(row);
+    }
+  }
+
+  function renderYou() {
+    const el = document.getElementById("you");
+    if (CATALOG.user.verified.includes("ie-student")) {
+      el.hidden = false;
+      el.innerHTML = `<span class="check">✓</span>
+        <div><b>${CATALOG.user.name}</b> — verified IE University student.
+        You qualify for student-only bounties below.</div>`;
+    }
+  }
+
+  function renderBounties() {
+    const wrap = document.getElementById("bounties");
+    wrap.innerHTML = "";
+    for (const b of CATALOG.bounties) {
+      const verified = !b.requires_verified || CATALOG.user.verified.includes(b.requires_verified);
+      const needsMet = b.needs.every((n) => selected.has(n));
+      const needLabels = b.needs.map(labelOf).join(", ");
+      const hot = verified && b.requires_verified;
+
+      const card = document.createElement("div");
+      card.className = "bounty" + (hot ? " hot" : "");
+      card.innerHTML = `
+        <div class="top">
+          <span class="company">${b.company}</span>
+          <span class="reward">$${b.reward_usd}</span>
+        </div>
+        <div class="title">${b.title}</div>
+        <div class="ask">${b.ask}</div>
+        ${b.requires_verified && verified ? '<span class="vbadge">✓ You\'re already verified</span>' : ""}
+        <div class="foot">
+          <span class="needs">Needs: ${needLabels}</span>
+          <button class="claim ${needsMet && verified ? "" : "quiet"}" ${needsMet && verified ? "" : "disabled"}>
+            ${verified ? (needsMet ? "Claim $" + b.reward_usd : "Opt in to claim") : "Verify to claim"}
+          </button>
+        </div>`;
+      const btn = card.querySelector("button");
+      btn.addEventListener("click", () => {
+        btn.textContent = "Claimed ✓";
+        btn.disabled = true;
+      });
+      wrap.appendChild(card);
+    }
+  }
+
+  function labelOf(id) {
+    const d = CATALOG.data_types.find((x) => x.id === id);
+    return d ? d.label : id;
+  }
+
+  function update() {
+    let total = 0;
+    for (const d of CATALOG.data_types) if (selected.has(d.id)) total += d.value_usd;
+    document.getElementById("total").innerHTML = `$${total.toFixed(2)} <small>/mo</small>`;
+    const n = selected.size;
+    document.getElementById("count").textContent =
+      n === 0 ? "Nothing shared yet" : `${n} data type${n === 1 ? "" : "s"} shared`;
+  }
+
+  load();
+</script>
+</body>
+</html>

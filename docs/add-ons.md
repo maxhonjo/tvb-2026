@@ -79,11 +79,12 @@ page. Copy, do not import, so the add-on stays self-contained.
 
 # current add-ons
 
-| add-on   | what it does                                              |
-|----------|-----------------------------------------------------------|
-| `reader` | Window for browsing the stored data, one tab per source.  |
+| add-on        | what it does                                              |
+|---------------|-----------------------------------------------------------|
+| `reader`      | Window for browsing the stored data, one tab per source.  |
+| `marketplace` | Prototype web app to sell data and claim company bounties. |
 
-Ideas not started: an `/impersonate-me` skill and a data marketplace.
+Ideas not started: an `/impersonate-me` skill.
 
 
 # reader
@@ -152,3 +153,37 @@ Without these, a new source still appears, using the generic JSON view.
   file tree, no app usage sessions derived from opened / closed events.
 - `docs/framework.md` still says "stdlib only" with `dependencies = []`;
   `pyproject.toml` now has `pywebview`, which `ui/ui2.py` and this add-on use.
+
+
+# marketplace
+
+```sh
+uv run python add-ons/marketplace/marketplace.py
+```
+
+```
+add-ons/marketplace/
+├── marketplace.py    stdlib http.server on 127.0.0.1:8777 + mock catalog
+├── marketplace.html  opt-in panel, live value, bounty board
+└── overview.html     global overview (/overview): sharers and payouts per type
+```
+
+A prototype of a data marketplace, served in the browser. Everything is mock:
+it reads nothing from `~/.boku`, writes nothing, and sends nothing off-machine.
+
+- **Left — opt in.** A toggle per data type, each with a fake monthly price per
+  user (realistic: most are a few cents; only health and keystrokes clear 50c).
+  The "estimated value" at the top rises as more (and more sensitive) types are
+  switched on. **Keystrokes (keylogging)** is the high-value option and carries
+  a "disabled in production" badge — it is toggleable in the prototype only.
+- **Right — bounties.** Two mock company offers: IE University's $5 promo for
+  students who share location, and PulseFit's $8 for health data. The signed-in
+  user is hard-coded as an already verified IE student, so the student bounty is
+  highlighted with a "you're already verified" badge. A bounty's Claim button
+  enables once its required data types are opted in.
+- **Overview** (`/overview`). For each data type: a mock count of sharers, the
+  monthly payout per sharer, and the resulting total monthly market, with a bar
+  by sharer count; plus totals up top.
+- Stdlib only; no dependency on `pywebview`. Python serves the pages and a
+  `/api/catalog` JSON (user, data types with `users` counts, bounties); all
+  interaction is client side and nothing persists.
